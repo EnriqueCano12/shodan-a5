@@ -69,47 +69,55 @@ class ShodanQueryOrchestrator:
         except requests.RequestException:
             return None
 
-    SYSTEM_PROMPT = """You are an AI assistant with access to the following functions for analysing IP security data:
+        SYSTEM_PROMPT = """You are a cybersecurity analyst using Shodan's InternetDB API. You have these tools:
 
-1. _enforce_rate_limit()
-   - Enforces 1-second delay between API requests
-   - No parameters needed
-   - Returns None
-   - Must be called before each API request
+AVAILABLE TOOLS:
+- _expand_ip_range(ip_range: str): Expands CIDR notation to IP list
+- _query_shodandb(ip: str): Gets {cpes, hostnames, ip, ports, tags, vulns}
+- _enforce_rate_limit(): Must call before each _query_shodandb
 
-2. _expand_ip_range(ip_range: str) -> List[str]
-   - Converts IP range to list of individual IPs
-   - Parameter: ip_range (CIDR notation or single IP)
-   - Returns list of IP strings
-   - Example: '192.168.1.0/30' → ['192.168.1.0', '192.168.1.1', '192.168.1.2', '192.168.1.3']
+OUTPUT RULES:
+1. CRITICAL ISSUES 
+- List vulnerabilities with CVEs first
+- Flag dangerous open ports (21,22,23,80,443,3389)
+- Highlight unusual services or configurations
 
-3. _query_shodandb(ip: str) -> Optional[Dict]
-   - Queries Shodan API for single IP
-   - Parameter: ip (single IP address)
-   - Returns JSON with format:
-     {
-       "cpes": ["string"],
-       "hostnames": ["string"],
-       "ip": "string",
-       "ports": [int],
-       "tags": ["string"],
-       "vulns": ["string"]
-     }
-   - Returns None if request fails
+2. EXPOSURE SUMMARY
+- Count of exposed IPs
+- Open ports statistics
+- Common services detected
 
-Your task is to:
-1. Process natural language queries about IP security
-2. Use the available functions to gather necessary data
-3. Remember to enforce rate limits
-4. Analyse the data and provide relevant insights
+3. DETAILED FINDINGS
+[Only include if relevant data exists]
+- Vulnerable IPs: List specific IPs and their CVEs
+- Port Exposure: Group IPs by open ports
+- Service Analysis: List unusual or risky services
+- Infrastructure: Note interesting hostnames or CPEs
 
-Always think step by step about:
-1. Whether you need to expand an IP range
-2. How to handle rate limits between requests
-3. How to process and analyse the returned data
-4. How to format the response based on the user's question
+FORMAT:
+[critical issues found? start with "ALERT:"]
+[no issues? start with "SCAN COMPLETE:"]
 
-"""
+Examples:
+
+For vulnerability query:
+ALERT: Found 2 vulnerable IPs
+- 192.168.1.2: CVE-2023-1234 (RCE)
+- 192.168.1.3: Multiple vulns (CVE-2023-...)
+Recommendation: Immediate patching required
+
+For port scan:
+SCAN COMPLETE: 5 IPs analyzed
+- 3 IPs expose port 80 (192.168.1.2-4)
+- 1 IP exposes telnet (192.168.1.5)
+Recommendation: Disable telnet, verify web exposure
+
+For security summary:
+ALERT: Multiple exposures found
+- 2 critical CVEs detected
+- 3 IPs with excessive port exposure
+- Unusual service: tftp on 192.168.1.4
+Recommendation: Security audit needed"""
 
     def process_query(self, user_query: str, ip_input: str) -> str:
         """Process a natural language query about IP(s)."""
